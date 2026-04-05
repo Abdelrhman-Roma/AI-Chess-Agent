@@ -1,84 +1,66 @@
-import math  # مكتبة فيها قيم زي اللانهاية
-import copy  # علشان نعمل نسخة من البورد منغير ما نبوظ الأصل
-
-def minimax_alpha_beta(board, depth, alpha, beta, is_ai_turn, get_legal_moves, evaluate, is_game_over):
-    # دي الفانكشن الأساسية بتاعة الذكاء الاصطناعي (Minimax + Alpha Beta)
-
+import math
+def minimax_alpha_beta(board, depth, alpha, beta, is_ai_turn,
+                       get_legal_moves, evaluate, is_game_over):
     if depth == 0 or is_game_over(board):
-        # لو وصلنا لأقصى عمق أو اللعبة خلصت
-        return evaluate(board), None  # نرجع تقييم البورد بس
+        return evaluate(board), None
 
-    best_move = None  # هنخزن هنا أفضل حركة
+    best_move = None
+    moves = get_legal_moves(board, "b" if is_ai_turn else "w")
+
+    # 🔥 تحسين 1: ترتيب الحركات (الأهم الأول)
+    def score_move(move):
+        return getattr(move, "is_capture", False)
+    moves.sort(key=score_move, reverse=True)
 
     if is_ai_turn:
-        # لو الدور بتاع الـ AI (الأسود)
-        max_eval = -math.inf  # بنبدأ بأقل قيمة ممكنة
+        max_eval = -math.inf
 
-        for move in get_legal_moves(board, "b"):
-            # نلف على كل الحركات الممكنة للأسود
-
-            new_board = copy.deepcopy(board)  
-            # نعمل نسخة من البورد علشان نجرب عليها
-
-            new_board.move_piece(move)  
-            # ننفذ الحركة
-
-            eval_score, _ = minimax_alpha_beta(
-                new_board, depth - 1, alpha, beta, False,
-                get_legal_moves, evaluate, is_game_over
-            )
-            # ننزل مستوى أعمق في الشجرة
+        for move in moves:
+            try:
+                board.make_move(move)
+                eval_score, _ = minimax_alpha_beta(
+                    board, depth - 1, alpha, beta, False,
+                    get_legal_moves, evaluate, is_game_over
+                )
+            finally:
+                board.undo_move()
 
             if eval_score > max_eval:
-                # لو لقينا تقييم أحسن
-                max_eval = eval_score  
-                best_move = move  
+                max_eval = eval_score
+                best_move = move
 
-            alpha = max(alpha, eval_score)  
-            # نحدث alpha
-
+            alpha = max(alpha, max_eval)
+            # 🔥 تحسين 2: pruning أسرع
             if beta <= alpha:
-                # لو حصل قطع (pruning)
-                break  
+                break
 
-        return max_eval, best_move  # نرجع أفضل نتيجة
+        return max_eval, best_move
 
     else:
-        # دور اللاعب (الأبيض)
-        min_eval = math.inf  # نبدأ بأكبر قيمة
+        min_eval = math.inf
 
-        for move in get_legal_moves(board, "w"):
-            # كل حركات الأبيض
-
-            new_board = copy.deepcopy(board)  
-            # ننسخ البورد
-
-            new_board.move_piece(move)  
-            # ننفذ الحركة
-
-            eval_score, _ = minimax_alpha_beta(
-                new_board, depth - 1, alpha, beta, True,
-                get_legal_moves, evaluate, is_game_over
-            )
+        for move in moves:
+            try:
+                board.make_move(move)
+                eval_score, _ = minimax_alpha_beta(
+                    board, depth - 1, alpha, beta, True,
+                    get_legal_moves, evaluate, is_game_over
+                )
+            finally:
+                board.undo_move()
 
             if eval_score < min_eval:
-                # لو لقيت تقييم أقل (أسوأ للـ AI)
-                min_eval = eval_score  
-                best_move = move  
+                min_eval = eval_score
+                best_move = move
 
-            beta = min(beta, eval_score)  
-            # نحدث beta
-
+            beta = min(beta, min_eval)
             if beta <= alpha:
-                # pruning
-                break  
+                break
 
-        return min_eval, best_move  
+        return min_eval, best_move
 
 
 def get_ai_move(board, get_legal_moves, evaluate, is_game_over, depth=3):
-    # دي الفانكشن اللي بنناديها علشان نجيب حركة الـ AI
-
     _, best_move = minimax_alpha_beta(
         board,
         depth,
@@ -89,5 +71,4 @@ def get_ai_move(board, get_legal_moves, evaluate, is_game_over, depth=3):
         evaluate,
         is_game_over
     )
-
-    return best_move  # نرجع أفضل حركة
+    return best_move
