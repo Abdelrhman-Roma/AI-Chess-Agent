@@ -1,5 +1,6 @@
 # from game.piece import pawn_moves , rook_moves ,knight_moves , bishop_moves ,queen_moves
 from game.piece import *
+from game.move import Move
 # بنستورد فانكشن حركات البيدق من ملف تاني
 
 def get_valid_moves(board,row,col):
@@ -37,4 +38,23 @@ def get_valid_moves(board,row,col):
         return king_moves(board,row,col)
     return []
     # باقي القطع (rook / knight / bishop / queen / king)
-    # لسه مش متطبقة، فبيرجع ليستة فاضية
+  
+def get_legal_moves(board_obj, color):
+    # دي بترجع كل الحركات الممكنة لكل قطع لون معين
+
+    board = board_obj.board
+    moves = []
+
+    for r in range(8):
+        for c in range(8):
+            piece = board[r][c]
+
+            if piece != "" and piece[0] == color:
+                # لو القطعة من نفس اللون
+
+                valid = get_valid_moves(board, r, c)
+
+                for (r2, c2) in valid:
+                    moves.append(Move((r, c), (r2, c2)))
+
+    return moves
