@@ -1,56 +1,41 @@
-from game.rules import get_valid_moves
-# بنستورد الفانكشن اللي بترجع الحركات المتاحة لأي قطعة
-
+from game.rules import get_legal_moves
 from game.move import Move
-# بنستورد كلاس Move علشان نمثل الحركة
 
-def handle_mouse_click(board_obj,selected_square,row,col):
+
+def handle_mouse_click(board_obj, selected_square, row, col, turn):
     # دي الفانكشن اللي بتتعامل مع كل ضغطة ماوس
-    
+
     board = board_obj.board
-    # بنجيب البورد (المصفوفة)
 
-    if not( 0 <= row < 8 and 0 <= col < 8):
-        # لو الضغطه كانت بره البورد
-        
+    # حماية من الضغط خارج البورد
+    if not (0 <= row < 8 and 0 <= col < 8):
         return selected_square
-        # متغيرش أي حاجة
 
+    # ================= SELECT =================
     if selected_square is None:
-        # لو مفيش مربع متحدد قبل كده
-        
-        if board[row][col] != "":
-            # ولو ضغطت على مربع فيه قطعة
-            
-            return(row ,col)
-            # نختار المربع ده (يبقى selected)
+        # اختار قطعة بس من نفس لون الدور
+        if board[row][col] != "" and board[row][col][0] == turn:
+            return (row, col)
+        return None
 
+    # ================= MOVE =================
     else:
-        # لو كان في مربع متحدد قبل كده
-        
-        old_row , old_col = selected_square
-        # ده مكان القطعة اللي اخترتها
+        old_row, old_col = selected_square
 
-        if (row,col) == selected_square:
-            # لو ضغطت على نفس المربع تاني
-            
+        # لو ضغط نفس المربع → فك التحديد
+        if (row, col) == selected_square:
             return None
-            # نلغي الاختيار (deselect)
 
-        valid_move = get_valid_moves(board,old_row,old_col)
-        # نجيب الحركات المتاحة للقطعة
+        # نجيب الحركات القانونية فقط
+        legal_moves = get_legal_moves(board_obj, turn)
 
-        if (row, col) in valid_move:
-            # لو المكان اللي ضغطت عليه موجود ضمن الحركات الصح
-            
-            move = Move((old_row,old_col),(row , col))
-            # نعمل object يمثل الحركة
-            
-            board_obj.move_piece(move)
-            # ننفذ الحركة على البورد
+        for move in legal_moves:
+            if move.start == (old_row, old_col) and move.end == (row, col):
+                board_obj.make_move(move)
+                return None
+
+        # لو ضغطت على قطعة تانية من نفس اللون → غيّر الاختيار
+        if board[row][col] != "" and board[row][col][0] == turn:
+            return (row, col)
 
         return None
-        # بعد الحركة (أو حتى لو مش valid) نلغي الاختيار
-
-    return selected_square
-    # لو محصلش حاجة، نرجع نفس الاختيار زي ما هو

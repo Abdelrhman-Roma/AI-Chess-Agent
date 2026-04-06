@@ -1,7 +1,6 @@
 import pygame
 from ai.minimax import get_ai_move
-from ai.evaluate import evaluate
-from ai.heuristics import heuristics_2
+from ai.heuristics import heuristics_1, heuristics_2, heuristics_3
 
 from gui.input_handler import handle_mouse_click
 from gui.assests import load_images
@@ -21,13 +20,13 @@ width, height = 800, 800
 rows, cols = 8, 8
 square_size = width // cols
 
-white = (240, 217, 181)
-brown = (181, 136, 99)
+white = (238, 238, 210)
+brown = (118, 150, 86)
 
 board_obj = Board()
 
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Chess Game")
+pygame.display.set_caption("Chess AI")
 
 clock = pygame.time.Clock()
 images = load_images(square_size)
@@ -40,6 +39,7 @@ valid_moves = []
 difficulty = None
 game_started = False
 
+
 # ================= MENU =================
 def draw_menu():
     screen.fill((20, 20, 20))
@@ -48,13 +48,10 @@ def draw_menu():
     title = font.render("Choose Difficulty", True, (255, 255, 255))
     screen.blit(title, (230, 150))
 
-    easy = font.render("1 - Easy", True, (0, 255, 0))
-    medium = font.render("2 - Medium", True, (255, 255, 0))
-    hard = font.render("3 - Hard (Locked)", True, (255, 0, 0))
+    screen.blit(font.render("1 - Easy", True, (0, 255, 0)), (300, 300))
+    screen.blit(font.render("2 - Medium", True, (255, 255, 0)), (300, 380))
+    screen.blit(font.render("3 - Hard", True, (0, 255, 255)), (300, 460))
 
-    screen.blit(easy, (300, 300))
-    screen.blit(medium, (300, 380))
-    screen.blit(hard, (300, 460))
 
 # ================= BOARD =================
 def draw_board():
@@ -65,50 +62,50 @@ def draw_board():
                              (col * square_size, row * square_size, square_size, square_size))
 
             piece = board_obj.board[row][col]
-            if piece != "":
+            if piece:
                 screen.blit(images[piece],
                             (col * square_size, row * square_size))
 
-# ================= TEXT =================
+
+# ================= UI =================
 def draw_text(text):
     font = pygame.font.SysFont(None, 60)
     render = font.render(text, True, (255, 0, 0))
     rect = render.get_rect(center=(width // 2, height // 2))
     screen.blit(render, rect)
 
-# ================= DIFFICULTY =================
+
 def draw_difficulty():
     font = pygame.font.SysFont(None, 30)
+    text = f"Mode: {difficulty.capitalize()}" if difficulty else ""
+    screen.blit(font.render(text, True, (0, 0, 0)), (10, 10))
 
-    if difficulty == "easy":
-        text = "Mode: Easy"
-    elif difficulty == "medium":
-        text = "Mode: Medium"
-    else:
-        text = ""
-
-    render = font.render(text, True, (0, 0, 0))
-    screen.blit(render, (10, 10))
 
 # ================= MOUSE =================
 def get_mouse_pos():
     x, y = pygame.mouse.get_pos()
     return y // square_size, x // square_size
 
+
 # ================= HIGHLIGHT =================
 def highlight_square(row, col):
     pygame.draw.rect(screen, (0, 0, 255),
                      (col * square_size, row * square_size, square_size, square_size), 4)
 
+
 def highlight_moves(moves):
     for row, col in moves:
-        pygame.draw.circle(
-            screen,
-            (0, 255, 0),
-            (col * square_size + square_size // 2,
-             row * square_size + square_size // 2),
-            15
-        )
+        pygame.draw.rect(screen, (0, 255, 0),
+                         (col * square_size, row * square_size, square_size, square_size), 4)
+
+
+def highlight_last_move():
+    if board_obj.move_log:
+        move = board_obj.move_log[-1][0]
+        r, c = move.end
+        pygame.draw.rect(screen, (255, 255, 0),
+                         (c * square_size, r * square_size, square_size, square_size), 4)
+
 
 def highlight_check():
     if is_in_check(board_obj, "w"):
@@ -116,16 +113,20 @@ def highlight_check():
     if is_in_check(board_obj, "b"):
         draw_king("b")
 
+
 def draw_king(color):
     for r in range(8):
         for c in range(8):
             if board_obj.board[r][c] == color + "k":
-                pygame.draw.rect(
-                    screen,
-                    (255, 0, 0),
-                    (c * square_size, r * square_size, square_size, square_size),
-                    5
-                )
+                pygame.draw.rect(screen, (255, 0, 0),
+                                 (c * square_size, r * square_size, square_size, square_size), 6)
+
+
+def highlight_hover():
+    row, col = get_mouse_pos()
+    pygame.draw.rect(screen, (255, 255, 0),
+                     (col * square_size, row * square_size, square_size, square_size), 2)
+
 
 # ================= MAIN =================
 def main():
@@ -155,14 +156,16 @@ def main():
                         difficulty = "medium"
                         game_started = True
                     elif event.key == pygame.K_3:
-                        print("Hard Locked")
-
+                        difficulty = "hard"
+                        game_started = True
             continue
 
-        # -------- GAME --------
+        # -------- DRAW --------
         draw_board()
         highlight_moves(valid_moves)
+        highlight_last_move()
         highlight_check()
+        highlight_hover()
         draw_difficulty()
 
         if selected_square:
@@ -178,6 +181,17 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
+            # 🔥 اختيار الترقية
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    board_obj.promotion_choice = "q"
+                elif event.key == pygame.K_r:
+                    board_obj.promotion_choice = "r"
+                elif event.key == pygame.K_b:
+                    board_obj.promotion_choice = "b"
+                elif event.key == pygame.K_n:
+                    board_obj.promotion_choice = "n"
+
             # ===== PLAYER =====
             if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 if current_turn == "w":
@@ -186,23 +200,18 @@ def main():
                     old_board = [r[:] for r in board_obj.board]
 
                     selected_square = handle_mouse_click(
-                        board_obj, selected_square, row, col
+                        board_obj, selected_square, row, col, current_turn
                     )
 
                     if selected_square:
                         r, c = selected_square
                         legal_moves = get_legal_moves(board_obj, current_turn)
 
-                        valid_moves = []
-                        for move in legal_moves:
-                            if move.start == (r, c):
-                                valid_moves.append(move.end)
+                        valid_moves = [m.end for m in legal_moves if m.start == (r, c)]
                     else:
                         valid_moves = []
 
-                    # لو حصلت حركة
                     if old_board != board_obj.board:
-                        valid_moves = []
                         current_turn = "b"
 
                         if is_checkmate(board_obj, "b"):
@@ -216,22 +225,25 @@ def main():
         if current_turn == "b" and not game_over:
 
             if difficulty == "easy":
-                evaluation_function = evaluate
+                evaluation_function = heuristics_1
+                depth = 2
             elif difficulty == "medium":
                 evaluation_function = heuristics_2
+                depth = 3
             else:
-                evaluation_function = evaluate
+                evaluation_function = heuristics_3
+                depth = 4
 
             ai_move = get_ai_move(
                 board_obj,
                 get_legal_moves,
                 evaluation_function,
                 lambda b: False,
-                depth=2
+                depth=depth
             )
 
-            if ai_move is not None:
-                board_obj.make_move(ai_move)  # 🔥 أهم تعديل
+            if ai_move:
+                board_obj.make_move(ai_move)
 
             current_turn = "w"
 
@@ -243,5 +255,6 @@ def main():
                 game_over = True
 
     pygame.quit()
+
 
 main()

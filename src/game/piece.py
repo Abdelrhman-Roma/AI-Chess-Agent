@@ -1,153 +1,136 @@
-# ================== PAWN ==================
-def pawn_moves(board, row, col):
-    piece = board[row][col]
+# ================= PAWN =================
+def pawn_moves(board_obj, r, c):
+    board = board_obj.board
+    piece = board[r][c]
     moves = []
 
-    # -------- White Pawn --------
-    if piece == "wp":
+    direction = -1 if piece[0] == "w" else 1
+    enemy = "b" if piece[0] == "w" else "w"
 
-        # خطوة قدام
-        if row - 1 >= 0 and board[row - 1][col] == "":
-            moves.append((row - 1, col))
+    # خطوة قدام
+    if 0 <= r + direction < 8:
+        if board[r + direction][c] == "":
+            moves.append((r + direction, c))
 
-            # خطوتين أول مرة
-            if row == 6 and board[row - 2][col] == "":
-                moves.append((row - 2, col))
+            # أول مرة خطوتين
+            if (r == 6 and piece[0] == "w") or (r == 1 and piece[0] == "b"):
+                if board[r + 2 * direction][c] == "":
+                    moves.append((r + 2 * direction, c))
 
-        # أكل شمال
-        if row - 1 >= 0 and col - 1 >= 0:
-            if board[row - 1][col - 1] != "" and board[row - 1][col - 1][0] == "b":
-                moves.append((row - 1, col - 1))
+    # ضرب قطري
+    for dc in [-1, 1]:
+        nr, nc = r + direction, c + dc
+        if 0 <= nr < 8 and 0 <= nc < 8:
+            if board[nr][nc] != "" and board[nr][nc][0] == enemy:
+                moves.append((nr, nc))
 
-        # أكل يمين
-        if row - 1 >= 0 and col + 1 < 8:
-            if board[row - 1][col + 1] != "" and board[row - 1][col + 1][0] == "b":
-                moves.append((row - 1, col + 1))
-
-    # -------- Black Pawn --------
-    elif piece == "bp":
-
-        # خطوة قدام
-        if row + 1 < 8 and board[row + 1][col] == "":
-            moves.append((row + 1, col))
-
-            # خطوتين أول مرة
-            if row == 1 and board[row + 2][col] == "":
-                moves.append((row + 2, col))
-
-        # أكل شمال
-        if row + 1 < 8 and col - 1 >= 0:
-            if board[row + 1][col - 1] != "" and board[row + 1][col - 1][0] == "w":
-                moves.append((row + 1, col - 1))
-
-        # أكل يمين
-        if row + 1 < 8 and col + 1 < 8:
-            if board[row + 1][col + 1] != "" and board[row + 1][col + 1][0] == "w":
-                moves.append((row + 1, col + 1))
+    # ================= EN PASSANT =================
+    if board_obj.en_passant_target:
+        if (r + direction, c - 1) == board_obj.en_passant_target:
+            moves.append(board_obj.en_passant_target)
+        if (r + direction, c + 1) == board_obj.en_passant_target:
+            moves.append(board_obj.en_passant_target)
 
     return moves
 
 
-# ================== ROOK ==================
-def rook_moves(board, row, col):
-    piece = board[row][col]
+# ================= ROOK =================
+def rook_moves(board, r, c):
     moves = []
-
-    directions = [
-        (-1, 0), (1, 0),  # فوق / تحت
-        (0, -1), (0, 1)   # شمال / يمين
-    ]
+    directions = [(1,0),(-1,0),(0,1),(0,-1)]
 
     for dr, dc in directions:
-        r, c = row + dr, col + dc
-
-        while 0 <= r < 8 and 0 <= c < 8:
-            if board[r][c] == "":
-                moves.append((r, c))
-            else:
-                if board[r][c][0] != piece[0]:
-                    moves.append((r, c))
-                break
-
-            r += dr
-            c += dc
-
+        for i in range(1, 8):
+            nr, nc = r + dr*i, c + dc*i
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                if board[nr][nc] == "":
+                    moves.append((nr, nc))
+                else:
+                    if board[nr][nc][0] != board[r][c][0]:
+                        moves.append((nr, nc))
+                    break
     return moves
 
 
-# ================== KNIGHT ==================
-def knight_moves(board, row, col):
-    piece = board[row][col]
+# ================= KNIGHT =================
+def knight_moves(board, r, c):
     moves = []
+    steps = [(2,1),(2,-1),(-2,1),(-2,-1),(1,2),(1,-2),(-1,2),(-1,-2)]
 
-    directions = [
-        (-2, -1), (-2, 1),
-        (-1, -2), (-1, 2),
-        (1, -2),  (1, 2),
-        (2, -1),  (2, 1)
-    ]
-
-    for dr, dc in directions:
-        r = row + dr
-        c = col + dc
-
-        if 0 <= r < 8 and 0 <= c < 8:
-            if board[r][c] == "" or board[r][c][0] != piece[0]:
-                moves.append((r, c))
-
+    for dr, dc in steps:
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < 8 and 0 <= nc < 8:
+            if board[nr][nc] == "" or board[nr][nc][0] != board[r][c][0]:
+                moves.append((nr, nc))
     return moves
 
 
-# ================== BISHOP ==================
-def bishop_moves(board, row, col):
-    piece = board[row][col]
+# ================= BISHOP =================
+def bishop_moves(board, r, c):
     moves = []
-
-    directions = [
-        (-1, -1), (-1, 1),
-        (1, -1),  (1, 1)
-    ]
+    directions = [(1,1),(1,-1),(-1,1),(-1,-1)]
 
     for dr, dc in directions:
-        r, c = row + dr, col + dc
-
-        while 0 <= r < 8 and 0 <= c < 8:
-            if board[r][c] == "":
-                moves.append((r, c))
-            else:
-                if board[r][c][0] != piece[0]:
-                    moves.append((r, c))
-                break
-
-            r += dr
-            c += dc
-
+        for i in range(1, 8):
+            nr, nc = r + dr*i, c + dc*i
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                if board[nr][nc] == "":
+                    moves.append((nr, nc))
+                else:
+                    if board[nr][nc][0] != board[r][c][0]:
+                        moves.append((nr, nc))
+                    break
     return moves
 
 
-# ================== QUEEN ==================
-def queen_moves(board, row, col):
-    return rook_moves(board, row, col) + bishop_moves(board, row, col)
+# ================= QUEEN =================
+def queen_moves(board, r, c):
+    return rook_moves(board, r, c) + bishop_moves(board, r, c)
 
 
-# ================== KING ==================
-def king_moves(board, row, col):
-    piece = board[row][col]
+# ================= KING =================
+def king_moves(board_obj, r, c):
+    board = board_obj.board
     moves = []
 
-    directions = [
-        (-1, 0), (1, 0),   # فوق / تحت
-        (0, -1), (0, 1),   # شمال / يمين
-        (-1, -1), (-1, 1), # قطري فوق
-        (1, -1),  (1, 1)   # قطري تحت
-    ]
+    # الحركات العادية
+    for dr in [-1,0,1]:
+        for dc in [-1,0,1]:
+            if dr == 0 and dc == 0:
+                continue
 
-    for dr, dc in directions:
-        r = row + dr
-        c = col + dc
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                if board[nr][nc] == "" or board[nr][nc][0] != board[r][c][0]:
+                    moves.append((nr, nc))
 
-        if 0 <= r < 8 and 0 <= c < 8:
-            if board[r][c] == "" or board[r][c][0] != piece[0]:
-                moves.append((r, c))
+    # ================= CASTLING =================
+    piece = board[r][c]
+
+    # White
+    if piece == "wk" and not board_obj.white_king_moved:
+
+        # King side
+        if board[7][5] == "" and board[7][6] == "":
+            if board[7][7] == "wr":
+                moves.append((7, 6))
+
+        # Queen side
+        if board[7][1] == "" and board[7][2] == "" and board[7][3] == "":
+            if board[7][0] == "wr":
+                moves.append((7, 2))
+
+    # Black
+    if piece == "bk" and not board_obj.black_king_moved:
+
+        # King side
+        if board[0][5] == "" and board[0][6] == "":
+            if board[0][7] == "br":
+                moves.append((0, 6))
+
+        # Queen side
+        if board[0][1] == "" and board[0][2] == "" and board[0][3] == "":
+            if board[0][0] == "br":
+                moves.append((0, 2))
 
     return moves
