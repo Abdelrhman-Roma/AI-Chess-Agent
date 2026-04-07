@@ -7,29 +7,45 @@ def pawn_moves(board_obj, r, c):
     direction = -1 if piece[0] == "w" else 1
     enemy = "b" if piece[0] == "w" else "w"
 
-    # خطوة قدام
+    # move forward
     if 0 <= r + direction < 8:
         if board[r + direction][c] == "":
             moves.append((r + direction, c))
 
-            # أول مرة خطوتين
+            # first move double
             if (r == 6 and piece[0] == "w") or (r == 1 and piece[0] == "b"):
                 if board[r + 2 * direction][c] == "":
                     moves.append((r + 2 * direction, c))
 
-    # ضرب قطري
+    # capture diagonally فقط
     for dc in [-1, 1]:
         nr, nc = r + direction, c + dc
         if 0 <= nr < 8 and 0 <= nc < 8:
             if board[nr][nc] != "" and board[nr][nc][0] == enemy:
                 moves.append((nr, nc))
 
-    # ================= EN PASSANT =================
+    # en passant
     if board_obj.en_passant_target:
         if (r + direction, c - 1) == board_obj.en_passant_target:
             moves.append(board_obj.en_passant_target)
         if (r + direction, c + 1) == board_obj.en_passant_target:
             moves.append(board_obj.en_passant_target)
+
+    return moves
+
+
+# ================= PAWN ATTACKS (مهم للـ check فقط) =================
+def pawn_attacks(board_obj, r, c):
+    board = board_obj.board
+    piece = board[r][c]
+    moves = []
+
+    direction = -1 if piece[0] == "w" else 1
+
+    for dc in [-1, 1]:
+        nr, nc = r + direction, c + dc
+        if 0 <= nr < 8 and 0 <= nc < 8:
+            moves.append((nr, nc))
 
     return moves
 
@@ -93,7 +109,7 @@ def king_moves(board_obj, r, c):
     board = board_obj.board
     moves = []
 
-    # الحركات العادية
+    # normal moves
     for dr in [-1,0,1]:
         for dc in [-1,0,1]:
             if dr == 0 and dc == 0:
@@ -104,33 +120,21 @@ def king_moves(board_obj, r, c):
                 if board[nr][nc] == "" or board[nr][nc][0] != board[r][c][0]:
                     moves.append((nr, nc))
 
-    # ================= CASTLING =================
+    # castling (validation الحقيقي في rules)
     piece = board[r][c]
 
-    # White
+    # white
     if piece == "wk" and not board_obj.white_king_moved:
+        if board[7][5] == "" and board[7][6] == "" and board[7][7] == "wr":
+            moves.append((7, 6))
+        if board[7][1] == "" and board[7][2] == "" and board[7][3] == "" and board[7][0] == "wr":
+            moves.append((7, 2))
 
-        # King side
-        if board[7][5] == "" and board[7][6] == "":
-            if board[7][7] == "wr":
-                moves.append((7, 6))
-
-        # Queen side
-        if board[7][1] == "" and board[7][2] == "" and board[7][3] == "":
-            if board[7][0] == "wr":
-                moves.append((7, 2))
-
-    # Black
+    # black
     if piece == "bk" and not board_obj.black_king_moved:
-
-        # King side
-        if board[0][5] == "" and board[0][6] == "":
-            if board[0][7] == "br":
-                moves.append((0, 6))
-
-        # Queen side
-        if board[0][1] == "" and board[0][2] == "" and board[0][3] == "":
-            if board[0][0] == "br":
-                moves.append((0, 2))
+        if board[0][5] == "" and board[0][6] == "" and board[0][7] == "br":
+            moves.append((0, 6))
+        if board[0][1] == "" and board[0][2] == "" and board[0][3] == "" and board[0][0] == "br":
+            moves.append((0, 2))
 
     return moves

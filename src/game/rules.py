@@ -1,6 +1,13 @@
-from game.piece import pawn_moves, rook_moves, knight_moves, bishop_moves, queen_moves, king_moves
+from game.piece import (
+    pawn_moves,
+    rook_moves,
+    knight_moves,
+    bishop_moves,
+    queen_moves,
+    king_moves,
+    pawn_attacks
+)
 from game.move import Move
-import copy
 
 
 # ================== VALID MOVES ==================
@@ -32,29 +39,45 @@ def get_valid_moves(board_obj, row, col):
     return []
 
 
-# ================== CHECK ==================
-def is_in_check(board_obj, color):
-    board = board_obj.board
-    king_pos = None
+# ================== ATTACK MOVES ==================
+def get_attacks(board_obj, row, col):
+    piece = board_obj.board[row][col]
 
-    # نلاقي مكان الملك
+    if piece == "":
+        return []
+
+    if piece[1] == "p":
+        return pawn_attacks(board_obj, row, col)
+
+    return get_valid_moves(board_obj, row, col)
+
+
+# ================== FIND KING ==================
+def find_king(board_obj, color):
     for r in range(8):
         for c in range(8):
-            if board[r][c] == color + "k":
-                king_pos = (r, c)
-                break
+            if board_obj.board[r][c] == color + "k":
+                return (r, c)
+    return None
+
+
+# ================== CHECK ==================
+def is_in_check(board_obj, color):
+    king_pos = find_king(board_obj, color)
+
+    if king_pos is None:
+        return True
 
     enemy = "b" if color == "w" else "w"
 
-    # نشوف هل الملك تحت تهديد
     for r in range(8):
         for c in range(8):
-            piece = board[r][c]
+            piece = board_obj.board[r][c]
 
             if piece != "" and piece[0] == enemy:
-                moves = get_valid_moves(board_obj, r, c)
+                attacks = get_attacks(board_obj, r, c)
 
-                if king_pos in moves:
+                if king_pos in attacks:
                     return True
 
     return False
@@ -69,39 +92,49 @@ def get_legal_moves(board_obj, color):
             piece = board_obj.board[r][c]
 
             if piece != "" and piece[0] == color:
+
                 valid_moves = get_valid_moves(board_obj, r, c)
 
+                # 🔥 أهم تعديل: فلترة حركات الملك
+                if piece[1] == "k":
+                    safe_moves = []
+
+                    for (r2, c2) in valid_moves:
+                        move = Move((r, c), (r2, c2))
+                        board_obj.make_move(move)
+
+                        if not is_in_check(board_obj, color):
+                            safe_moves.append((r2, c2))
+
+                        board_obj.undo_move()
+
+                    valid_moves = safe_moves
+
                 for (r2, c2) in valid_moves:
+
+                    target = board_obj.board[r2][c2]
+
+                    # منع أخذ الملك
+                    if target != "" and target[1] == "k":
+                        continue
+
                     move = Move((r, c), (r2, c2))
 
-                    # نعمل نسخة من البورد
-                    new_board = copy.deepcopy(board_obj)
-                    new_board.make_move(move)
+                    board_obj.make_move(move)
 
-                    # نتأكد إن الملك مش في check
-                    if not is_in_check(new_board, color):
+                    if not is_in_check(board_obj, color):
                         moves.append(move)
+
+                    board_obj.undo_move()
 
     return moves
 
 
 # ================== CHECKMATE ==================
 def is_checkmate(board_obj, color):
-    # لو مش في check يبقى مش checkmate
-    if not is_in_check(board_obj, color):
-        return False
-
-    # لو مفيش أي moves قانونية يبقى مات
-    moves = get_legal_moves(board_obj, color)
-    return len(moves) == 0
+    return is_in_check(board_obj, color) and len(get_legal_moves(board_obj, color)) == 0
 
 
 # ================== STALEMATE ==================
 def is_stalemate(board_obj, color):
-    # لو في check يبقى مش stalemate
-    if is_in_check(board_obj, color):
-        return False
-
-    # لو مفيش moves يبقى تعادل
-    moves = get_legal_moves(board_obj, color)
-    return len(moves) == 0
+    return not is_in_check(board_obj, color) and len(get_legal_moves(board_obj, color)) == 0

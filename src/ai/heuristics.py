@@ -1,85 +1,33 @@
 # ============================================
-# Heuristic 1: Basic Material
+# Heuristic 1: Basic Material (300-500 ELO)
 # ============================================
 def heuristics_1(board_obj):
     values = {
         "p": 100, "n": 320, "b": 330,
         "r": 500, "q": 900, "k": 0
     }
+
     score = 0
 
     for row in board_obj.board:
         for piece in row:
-            if piece != "":
-                value = values[piece[1]]
-
-                if piece[0] == "w":
-                    score += value
-                else:
-                    score -= value
+            if piece:
+                val = values[piece[1]]
+                score += val if piece[0] == "w" else -val
 
     return score
 
 
 # ============================================
-# Heuristic 2: Position + Tables (بتاعتك)
+# Heuristic 2: Material + Position (600-1000 ELO)
 # ============================================
 def heuristics_2(board_obj):
-    PAWN_TABLE = [
-        [ 0,  0,  0,  0,  0,  0,  0,  0],
-        [50, 50, 50, 50, 50, 50, 50, 50],
-        [10, 10, 20, 30, 30, 20, 10, 10],
-        [ 5,  5, 10, 25, 25, 10,  5,  5],
-        [ 0,  0,  0, 20, 20,  0,  0,  0],
-        [ 5, -5,-10,  0,  0,-10, -5,  5],
-        [ 5, 10, 10,-20,-20, 10, 10,  5],
-        [ 0,  0,  0,  0,  0,  0,  0,  0]
-    ]
-    KNIGHT_TABLE = [
-        [-50,-40,-30,-30,-30,-30,-40,-50],
-        [-40,-20,  0,  0,  0,  0,-20,-40],
-        [-30,  0, 10, 15, 15, 10,  0,-30],
-        [-30,  5, 15, 20, 20, 15,  5,-30],
-        [-30,  0, 15, 20, 20, 15,  0,-30],
-        [-30,  5, 10, 15, 15, 10,  5,-30],
-        [-40,-20,  0,  5,  5,  0,-20,-40],
-        [-50,-40,-30,-30,-30,-30,-40,-50]
-    ]
-    BISHOP_TABLE = [
-        [-20,-10,-10,-10,-10,-10,-10,-20],
-        [-10,  0,  0,  0,  0,  0,  0,-10],
-        [-10,  0,  5, 10, 10,  5,  0,-10],
-        [-10,  5,  5, 10, 10,  5,  5,-10],
-        [-10,  0, 10, 10, 10, 10,  0,-10],
-        [-10, 10, 10, 10, 10, 10, 10,-10],
-        [-10,  5,  0,  0,  0,  0,  5,-10],
-        [-20,-10,-10,-10,-10,-10,-10,-20]
-    ]
-    ROOK_TABLE = [
-        [ 0,  0,  0,  0,  0,  0,  0,  0],
-        [ 5, 10, 10, 10, 10, 10, 10,  5],
-        [-5,  0,  0,  0,  0,  0,  0, -5],
-        [-5,  0,  0,  0,  0,  0,  0, -5],
-        [-5,  0,  0,  0,  0,  0,  0, -5],
-        [-5,  0,  0,  0,  0,  0,  0, -5],
-        [-5,  0,  0,  0,  0,  0,  0, -5],
-        [ 0,  0,  0,  5,  5,  0,  0,  0]
-    ]
-
-    tables = {
-        "p": PAWN_TABLE,
-        "n": KNIGHT_TABLE,
-        "b": BISHOP_TABLE,
-        "r": ROOK_TABLE,
-    }
+    board = board_obj.board
 
     values = {
         "p": 100, "n": 320, "b": 330,
         "r": 500, "q": 900, "k": 0
     }
-
-    score = 0
-    board = board_obj.board
 
     PAWN_TABLE = [
         [0,0,0,0,0,0,0,0],
@@ -114,53 +62,14 @@ def heuristics_2(board_obj):
         [-20,-10,-10,-10,-10,-10,-10,-20]
     ]
 
-    ROOK_TABLE = [
-        [0,0,0,0,0,0,0,0],
-        [5,10,10,10,10,10,10,5],
-        [-5,0,0,0,0,0,0,-5],
-        [-5,0,0,0,0,0,0,-5],
-        [-5,0,0,0,0,0,0,-5],
-        [-5,0,0,0,0,0,0,-5],
-        [-5,0,0,0,0,0,0,-5],
-        [0,0,0,5,5,0,0,0]
-    ]
-
-    QUEEN_TABLE = [
-        [-20,-10,-10,-5,-5,-10,-10,-20],
-        [-10,0,0,0,0,0,0,-10],
-        [-10,0,5,5,5,5,0,-10],
-        [-5,0,5,5,5,5,0,-5],
-        [0,0,5,5,5,5,0,-5],
-        [-10,5,5,5,5,5,0,-10],
-        [-10,0,5,0,0,0,0,-10],
-        [-20,-10,-10,-5,-5,-10,-10,-20]
-    ]
-
-    KING_TABLE = [
-        [-30,-40,-40,-50,-50,-40,-40,-30],
-        [-30,-40,-40,-50,-50,-40,-40,-30],
-        [-30,-40,-40,-50,-50,-40,-40,-30],
-        [-30,-40,-40,-50,-50,-40,-40,-30],
-        [-20,-30,-30,-40,-40,-30,-30,-20],
-        [-10,-20,-20,-20,-20,-20,-20,-10],
-        [20,20,0,0,0,0,20,20],
-        [20,30,10,0,0,10,30,20]
-    ]
-
     tables = {
-        "p": PAWN_TABLE, "n": KNIGHT_TABLE,
-        "b": BISHOP_TABLE, "r": ROOK_TABLE,
-        "q": QUEEN_TABLE, "k": KING_TABLE,
-    }
-
-    values = {
-        "p": 100, "n": 320, "b": 330,
-        "r": 500, "q": 900, "k": 0
+        "p": PAWN_TABLE,
+        "n": KNIGHT_TABLE,
+        "b": BISHOP_TABLE
     }
 
     score = 0
 
-    # 🔥 loop واحدة
     for r in range(8):
         for c in range(8):
             piece = board[r][c]
@@ -169,49 +78,44 @@ def heuristics_2(board_obj):
 
             color = piece[0]
             ptype = piece[1]
-            sign = 1 if color == "w" else -1
 
-            score += sign * values.get(ptype, 0)
-
-            # Material
             val = values[ptype]
+
+            # material
             score += val if color == "w" else -val
 
-            # Position
+            # position
             if ptype in tables:
                 if color == "w":
                     score += tables[ptype][r][c]
                 else:
-                    score -= tables[ptype][7-r][c]
+                    score -= tables[ptype][7 - r][c]
 
-    return heuristics_1(board_obj) + score
+    return score
 
 
 # ============================================
-# Heuristic 3: Advanced (FIXED)
+# Heuristic 3: Advanced (1000-1500 ELO)
 # ============================================
 def heuristics_3(board_obj):
     board = board_obj.board
 
     values = {
-        'p': 100,
-        'n': 320,
-        'b': 330,
-        'r': 500,
-        'q': 900,
-        'k': 0
+        "p": 100, "n": 320, "b": 330,
+        "r": 500, "q": 900, "k": 0
     }
 
     center_squares = [(3,3),(3,4),(4,3),(4,4)]
 
     material = 0
     center = 0
-    bishop_pair = {"w":0,"b":0}
+    bishop_pair = {"w": 0, "b": 0}
+    pawn_penalty = 0
 
     for r in range(8):
         for c in range(8):
             piece = board[r][c]
-            if piece == "":
+            if not piece:
                 continue
 
             color = piece[0]
@@ -219,28 +123,27 @@ def heuristics_3(board_obj):
 
             val = values[ptype]
 
-            # Material
-            if color == "w":
-                material += val
-            else:
-                material -= val
+            # material
+            material += val if color == "w" else -val
 
-            # Center
-            if (r,c) in center_squares:
-                if color == "w":
-                    center += 10
-                else:
-                    center -= 10
+            # center control
+            if (r, c) in center_squares:
+                center += 20 if color == "w" else -20
 
-            # Bishop pair
+            # bishop pair
             if ptype == "b":
                 bishop_pair[color] += 1
 
-    # Bishop bonus
+            # doubled pawn penalty
+            if ptype == "p":
+                for rr in range(8):
+                    if rr != r and board[rr][c] == piece:
+                        pawn_penalty -= 10 if color == "w" else -10
+
     bishop_score = 0
     if bishop_pair["w"] >= 2:
         bishop_score += 30
     if bishop_pair["b"] >= 2:
         bishop_score -= 30
 
-    return material + center + bishop_score
+    return material + center + bishop_score + pawn_penalty

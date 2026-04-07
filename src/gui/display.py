@@ -1,183 +1,186 @@
-import pygame  # استدعاء مكتبة pygame للرسم والتحكم
-from ai.minimax import get_ai_move  # دالة الذكاء الصناعي
-from ai.heuristics import heuristics_1, heuristics_2, heuristics_3  # دوال التقييم
+import pygame
+from ai.minimax import get_ai_move
+from ai.heuristics import heuristics_1, heuristics_2, heuristics_3
 
-from gui.input_handler import handle_mouse_click  # التعامل مع ضغط الماوس
-from gui.assests import load_images  # تحميل صور القطع
-from game.board import Board  # كلاس البورد
+from gui.input_handler import handle_mouse_click
+from gui.assests import load_images
+from game.board import Board
 
 from game.rules import (
-    get_legal_moves,  # الحركات القانونية
-    is_checkmate,     # هل في مات
-    is_stalemate,     # هل في تعادل
-    is_in_check       # هل الملك في كش
+    get_legal_moves,
+    is_checkmate,
+    is_stalemate,
+    is_in_check
 )
 
-pygame.init()  # تشغيل pygame
+pygame.init()
 
-# -------- إعدادات الشاشة --------
-width, height = 1000, 800  # حجم الشاشة
-board_width = 800  # عرض البورد فقط
+# -------- SETTINGS --------
+width, height = 1000, 800
+board_width = 800
 
-rows, cols = 8, 8  # عدد الصفوف والأعمدة
-square_size = board_width // cols  # حجم كل مربع
+rows, cols = 8, 8
+square_size = board_width // cols
 
-white = (238, 238, 210)  # لون مربع أبيض
-brown = (118, 150, 86)   # لون مربع بني
+white = (238, 238, 210)
+brown = (118, 150, 86)
 
-board_obj = Board()  # إنشاء البورد
+screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption("Chess AI")
 
-screen = pygame.display.set_mode((width, height))  # إنشاء الشاشة
-pygame.display.set_caption("Chess AI")  # اسم النافذة
+clock = pygame.time.Clock()
+images = load_images(square_size)
 
-clock = pygame.time.Clock()  # التحكم في الفريمات
-images = load_images(square_size)  # تحميل صور القطع
+board_obj = Board()
 
-current_turn = "w"  # الدور الحالي
-game_over = False  # هل اللعبة انتهت
-winner_text = ""  # نص الفائز
-valid_moves = []  # الحركات المتاحة
+current_turn = "w"
+game_over = False
+winner_text = ""
 
-difficulty = None  # مستوى اللعبة
-game_started = False  # هل اللعبة بدأت
+valid_moves = []
+selected_square = None
 
-# -------- التايمر --------
-white_time = 600  # وقت الأبيض 10 دقايق
-black_time = 600  # وقت الأسود
-last_time = pygame.time.get_ticks()  # آخر وقت
+difficulty = None
+game_started = False
+
+# -------- TIMER --------
+white_time = 600
+black_time = 600
+last_time = pygame.time.get_ticks()
 
 
-# -------- رسم المينيو (أزرار) --------
+# -------- MENU --------
 def draw_menu():
-    screen.fill((20, 20, 20))  # خلفية سوداء
+    screen.fill((20, 20, 20))
 
-    title_font = pygame.font.SysFont(None, 60)  # خط كبير
-    font = pygame.font.SysFont(None, 40)  # خط عادي
+    title_font = pygame.font.SysFont(None, 60)
+    font = pygame.font.SysFont(None, 40)
 
-    # العنوان
     title = title_font.render("Choose Difficulty", True, (255, 255, 255))
     screen.blit(title, title.get_rect(center=(width // 2, 180)))
 
-    mouse_pos = pygame.mouse.get_pos()  # مكان الماوس
+    mouse_pos = pygame.mouse.get_pos()
 
     buttons = [
-        ("Easy", (0, 255, 0), 320),     # زر easy
-        ("Medium", (255, 255, 0), 400), # زر medium
-        ("Hard", (255, 0, 0), 480)      # زر hard
+        ("Easy", (0, 255, 0), 320),
+        ("Medium", (255, 255, 0), 400),
+        ("Hard", (255, 0, 0), 480)
     ]
 
-    button_rects = []
+    rects = []
 
     for text, color, y in buttons:
-        rect = pygame.Rect(0, 0, 250, 60)  # مستطيل الزر
+        rect = pygame.Rect(0, 0, 250, 60)
         rect.center = (width // 2, y)
 
-        # تأثير hover
-        if rect.collidepoint(mouse_pos):
-            pygame.draw.rect(screen, (70, 70, 70), rect, border_radius=10)
-        else:
-            pygame.draw.rect(screen, (40, 40, 40), rect, border_radius=10)
+        pygame.draw.rect(screen, (70, 70, 70) if rect.collidepoint(mouse_pos) else (40, 40, 40), rect, border_radius=10)
 
-        label = font.render(text, True, color)  # نص الزر
+        label = font.render(text, True, color)
         screen.blit(label, label.get_rect(center=rect.center))
 
-        button_rects.append((rect, text.lower()))  # حفظ الزر
+        rects.append((rect, text.lower()))
 
-    return button_rects
+    return rects
 
 
-# -------- رسم البورد --------
+# -------- DRAW BOARD --------
 def draw_board():
-    for row in range(rows):
-        for col in range(cols):
-            color = white if (row + col) % 2 == 0 else brown  # تحديد اللون
-            pygame.draw.rect(screen, color,
-                             (col * square_size, row * square_size, square_size, square_size))
+    for r in range(rows):
+        for c in range(cols):
+            color = white if (r + c) % 2 == 0 else brown
+            pygame.draw.rect(screen, color, (c * square_size, r * square_size, square_size, square_size))
 
-            piece = board_obj.board[row][col]  # القطعة
+            piece = board_obj.board[r][c]
             if piece:
-                screen.blit(images[piece],
-                            (col * square_size, row * square_size))
+                screen.blit(images[piece], (c * square_size, r * square_size))
 
 
-# -------- highlight moves --------
+# -------- HIGHLIGHTS --------
 def highlight_moves(moves):
-    for row, col in moves:
-        center = (
-            col * square_size + square_size // 2,
-            row * square_size + square_size // 2
-        )
-        pygame.draw.circle(screen, (0, 255, 0), center, 10)  # دايرة خضرا
+    for r, c in moves:
+        pygame.draw.circle(screen, (0, 255, 0),
+                           (c * square_size + square_size // 2,
+                            r * square_size + square_size // 2), 10)
 
 
-# -------- hover effect --------
+def highlight_check():
+    if is_in_check(board_obj, current_turn):
+        for r in range(8):
+            for c in range(8):
+                if board_obj.board[r][c] == current_turn + "k":
+                    pygame.draw.rect(screen, (255, 0, 0),
+                                     (c * square_size, r * square_size, square_size, square_size), 4)
+
+
 def highlight_hover():
     x, y = pygame.mouse.get_pos()
     if x < board_width:
-        row = y // square_size
-        col = x // square_size
-
+        r = y // square_size
+        c = x // square_size
         pygame.draw.rect(screen, (255, 255, 0),
-                         (col * square_size, row * square_size, square_size, square_size), 2)
+                         (c * square_size, r * square_size, square_size, square_size), 2)
 
 
-# -------- آخر حركة --------
 def highlight_last_move():
     if board_obj.move_log:
         move = board_obj.move_log[-1][0]
         r, c = move.end
-
         pygame.draw.rect(screen, (255, 255, 0),
                          (c * square_size, r * square_size, square_size, square_size), 4)
 
 
-# -------- تحويل الوقت mm:ss --------
-def format_time(seconds):
-    minutes = int(seconds) // 60
-    secs = int(seconds) % 60
-    return f"{minutes:02}:{secs:02}"
+# -------- TIME --------
+def format_time(sec):
+    return f"{int(sec)//60:02}:{int(sec)%60:02}"
 
 
-# -------- side panel --------
+# -------- SIDE PANEL --------
 def draw_side_panel():
     pygame.draw.rect(screen, (30, 30, 30), (800, 0, 200, 800))
 
     font = pygame.font.SysFont(None, 32)
 
-    screen.blit(font.render(f"Mode: {difficulty.upper()}", True, (255, 255, 255)), (820, 50))
-
+    mode = difficulty.upper() if difficulty else "SELECT"
+    screen.blit(font.render(f"Mode: {mode}", True, (255, 255, 255)), (820, 50))
     screen.blit(font.render(f"White: {format_time(white_time)}", True, (200, 200, 200)), (820, 150))
     screen.blit(font.render(f"Black: {format_time(black_time)}", True, (200, 200, 200)), (820, 200))
 
 
-# -------- رسم نص الفوز --------
+# -------- TEXT --------
 def draw_text(text):
-    font = pygame.font.SysFont(None, 60)
+    font = pygame.font.SysFont(None, 70)
+
+    bg = pygame.Surface((600, 120))
+    bg.set_alpha(200)
+    bg.fill((0, 0, 0))
+
+    rect = bg.get_rect(center=(400, height // 2))
+    screen.blit(bg, rect)
+
     render = font.render(text, True, (255, 0, 0))
     screen.blit(render, render.get_rect(center=(400, height // 2)))
 
 
-# -------- مكان الماوس --------
 def get_mouse_pos():
     x, y = pygame.mouse.get_pos()
     return y // square_size, x // square_size
 
 
-# -------- main loop --------
+# -------- MAIN --------
 def main():
     global current_turn, game_over, winner_text
-    global valid_moves, difficulty, game_started
+    global valid_moves, selected_square
+    global difficulty, game_started
     global white_time, black_time, last_time
 
     run = True
-    selected_square = None
 
     while run:
         clock.tick(60)
 
-        # -------- المينيو --------
+        # -------- MENU --------
         if not game_started:
-            button_rects = draw_menu()
+            rects = draw_menu()
             pygame.display.update()
 
             for event in pygame.event.get():
@@ -185,18 +188,17 @@ def main():
                     run = False
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-
-                    for rect, level in button_rects:
-                        if rect.collidepoint(mouse_pos):
+                    for rect, level in rects:
+                        if rect.collidepoint(pygame.mouse.get_pos()):
                             difficulty = level
                             game_started = True
+
             continue
 
-        # -------- تحديث الوقت --------
-        current_time = pygame.time.get_ticks()
-        delta = (current_time - last_time) / 1000
-        last_time = current_time
+        # -------- TIMER --------
+        now = pygame.time.get_ticks()
+        delta = (now - last_time) / 1000
+        last_time = now
 
         if not game_over:
             if current_turn == "w":
@@ -204,69 +206,83 @@ def main():
             else:
                 black_time -= delta
 
-        # -------- انتهاء الوقت --------
+        # -------- TIME END --------
         if white_time <= 0:
-            winner_text = "Black Wins (Time)!"
+            winner_text = "BLACK WINS (TIME)"
             game_over = True
         elif black_time <= 0:
-            winner_text = "White Wins (Time)!"
+            winner_text = "WHITE WINS (TIME)"
             game_over = True
 
-        # -------- الرسم --------
+        # -------- CHECK GAME END (🔥 FIXED) --------
+        if not game_over:
+            if is_checkmate(board_obj, current_turn):
+                if current_turn == "w":
+                    winner_text = "BLACK WINS (CHECKMATE)"
+                else:
+                    winner_text = "WHITE WINS (CHECKMATE)"
+
+                print(winner_text)
+                game_over = True
+
+            elif is_stalemate(board_obj, current_turn):
+                winner_text = "DRAW (STALEMATE)"
+                print(winner_text)
+                game_over = True
+
+        # -------- DRAW --------
         draw_board()
         highlight_moves(valid_moves)
         highlight_last_move()
         highlight_hover()
+        highlight_check()
         draw_side_panel()
-
-        if selected_square:
-            pygame.draw.rect(screen, (0, 0, 255),
-                             (selected_square[1] * square_size, selected_square[0] * square_size, square_size, square_size), 4)
 
         if game_over:
             draw_text(winner_text)
 
         pygame.display.update()
 
-        # -------- events --------
+        # -------- EVENTS --------
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
 
             if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 if current_turn == "w":
-                    row, col = get_mouse_pos()
 
-                    old_board = [r[:] for r in board_obj.board]
+                    r, c = get_mouse_pos()
+                    old_board = [row[:] for row in board_obj.board]
 
                     selected_square = handle_mouse_click(
-                        board_obj, selected_square, row, col, current_turn
+                        board_obj, selected_square, r, c, current_turn
                     )
 
                     if selected_square:
-                        r, c = selected_square
+                        sr, sc = selected_square
                         legal_moves = get_legal_moves(board_obj, current_turn)
-                        valid_moves = [m.end for m in legal_moves if m.start == (r, c)]
+                        valid_moves = [m.end for m in legal_moves if m.start == (sr, sc)]
                     else:
                         valid_moves = []
 
                     if old_board != board_obj.board:
                         current_turn = "b"
+                        selected_square = None
+                        valid_moves = []
 
         # -------- AI --------
         if current_turn == "b" and not game_over:
 
-            if difficulty == "easy":
-                eval_func = heuristics_1
-                max_time = 0.2
-            elif difficulty == "medium":
-                eval_func = heuristics_2
-                max_time = 0.5
-            else:
-                eval_func = heuristics_3
-                max_time = 1.2
+            eval_func = heuristics_1 if difficulty == "easy" else heuristics_2 if difficulty == "medium" else heuristics_3
+            max_time = 0.2 if difficulty == "easy" else 0.5 if difficulty == "medium" else 1.0
 
-            move = get_ai_move(board_obj, get_legal_moves, eval_func, lambda b: False, max_time)
+            move = get_ai_move(
+                board_obj,
+                get_legal_moves,
+                eval_func,
+                lambda b: is_checkmate(b, "w") or is_checkmate(b, "b"),
+                max_time
+            )
 
             if move:
                 board_obj.make_move(move)

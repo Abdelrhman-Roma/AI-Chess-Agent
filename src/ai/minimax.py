@@ -24,7 +24,7 @@ def minimax_alpha_beta(board, depth, alpha, beta, is_ai_turn,
     best_move = moves[0]
 
     # ============================================
-    # 🔥 Move Ordering (مهم جدًا)
+    #Move Ordering (مهم جدًا)
     # ============================================
     def score_move(move):
         score = 0
@@ -107,8 +107,7 @@ def minimax_alpha_beta(board, depth, alpha, beta, is_ai_turn,
 
 
 # ============================================
-# 🎮 Iterative Deepening (🔥 السر الحقيقي)
-# ============================================
+
 def get_ai_move(board, get_legal_moves, evaluate, is_game_over, max_time=1.0):
 
     start_time = time.time()
@@ -137,6 +136,6 @@ def get_ai_move(board, get_legal_moves, evaluate, is_game_over, max_time=1.0):
         if move is not None:
             best_move = move
 
-        depth += 1  # 🔥 نزود العمق تدريجي
+        depth += 1  # نزود العمق تدريجي
 
     return best_move
