@@ -1,25 +1,21 @@
-import os
-import pygame
+import os  # بنستورد os عشان المسارات
+import pygame  # بنستورد pygame عشان الصور
 
-def load_images(square_size):
-    # دي فانكشن بتحميل صور القطع باستخدام pygame
+def load_images(square_size):  # دالة تحميل صور القطع
+    pieces = ["wp", "bp", "wr", "br", "wn", "bn", "wb", "bb", "wq", "bq", "wk", "bk"]  # ليستة كل القطع
+    images = {}  # ديكشنري هنحفظ فيه الصور
 
-    pieces = ["wp","bp","wr","br","wn","bn","wb","bb","wq","bq","wk","bk"]
+    base_path = os.path.dirname(__file__)  # مسار الملف الحالي
+    image_path = os.path.join(base_path, "image")  # مسار فولدر الصور
 
-    images = {}
+    for piece in pieces:  # بنلف على كل قطعة
+        path = os.path.join(image_path, f"{piece}.png")  # بنكون مسار الصورة
 
-    base_path = os.path.dirname(__file__)
-    image_path = os.path.join(base_path, "image")
+        if not os.path.exists(path):  # لو الصورة مش موجودة
+            raise FileNotFoundError(f"Missing chess piece image: {path}")  # نطلع خطأ واضح
 
-    for piece in pieces:
-        path = os.path.join(image_path, f"{piece}.png")
+        img = pygame.image.load(path).convert_alpha()  # بنحمّل الصورة مع الشفافية
+        img = pygame.transform.smoothscale(img, (square_size, square_size))  # بنعمل resize مناسب
+        images[piece] = img  # بنخزن الصورة في الديكشنري
 
-        # تحميل الصورة
-        img = pygame.image.load(path).convert_alpha()
-
-        # عمل resize باستخدام pygame
-        img = pygame.transform.scale(img, (square_size, square_size))
-
-        images[piece] = img
-
-    return images
+    return images  # بنرجع كل الصور
