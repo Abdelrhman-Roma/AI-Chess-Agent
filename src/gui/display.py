@@ -1,79 +1,78 @@
 import pygame
+
 from ai.minimax import get_ai_move
 from ai.heuristics import heuristics_1, heuristics_2, heuristics_3
-
-from gui.input_handler import handle_mouse_click
-from gui.assests import load_images
 from game.board import Board
-
-from game.rules import (
-    get_legal_moves,
-    is_checkmate,
-    is_stalemate,
-    is_in_check
-)
+from game.rules import get_legal_moves, is_checkmate, is_stalemate, is_in_check
+from gui.assests import load_images
+from gui.input_handler import handle_mouse_click
 
 pygame.init()
 
 # -------- SETTINGS --------
-width, height = 1000, 800
-board_width = 800
+WIDTH, HEIGHT = 1000, 800
+BOARD_WIDTH = 800
+ROWS, COLS = 8, 8
+SQUARE_SIZE = BOARD_WIDTH // COLS
 
-rows, cols = 8, 8
-square_size = board_width // cols
+WHITE_SQUARE = (238, 238, 210)
+GREEN_SQUARE = (118, 150, 86)
+SIDE_PANEL_COLOR = (30, 30, 30)
+MENU_BG = (20, 20, 20)
+HOVER_COLOR = (255, 255, 0)
+CHECK_COLOR = (255, 0, 0)
+MOVE_HINT_COLOR = (0, 255, 0)
 
-white = (238, 238, 210)
-brown = (118, 150, 86)
-
-screen = pygame.display.set_mode((width, height))
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Chess AI")
 
 clock = pygame.time.Clock()
-images = load_images(square_size)
+images = load_images(SQUARE_SIZE)
 
-board_obj = Board()
 
-current_turn = "w"
-game_over = False
-winner_text = ""
+def create_game_state():
+    return {
+        "board_obj": Board(),
+        "current_turn": "w",
+        "game_over": False,
+        "winner_text": "",
+        "valid_moves": [],
+        "selected_square": None,
+        "difficulty": None,
+        "game_started": False,
+        "white_time": 600.0,
+        "black_time": 600.0,
+        "last_time": pygame.time.get_ticks(),
+    }
 
-valid_moves = []
-selected_square = None
 
-difficulty = None
-game_started = False
-
-# -------- TIMER --------
-white_time = 600
-black_time = 600
-last_time = pygame.time.get_ticks()
+state = create_game_state()
 
 
 # -------- MENU --------
 def draw_menu():
-    screen.fill((20, 20, 20))
+    screen.fill(MENU_BG)
 
     title_font = pygame.font.SysFont(None, 60)
     font = pygame.font.SysFont(None, 40)
 
     title = title_font.render("Choose Difficulty", True, (255, 255, 255))
-    screen.blit(title, title.get_rect(center=(width // 2, 180)))
+    screen.blit(title, title.get_rect(center=(WIDTH // 2, 180)))
 
     mouse_pos = pygame.mouse.get_pos()
-
     buttons = [
         ("Easy", (0, 255, 0), 320),
         ("Medium", (255, 255, 0), 400),
-        ("Hard", (255, 0, 0), 480)
+        ("Hard", (255, 0, 0), 480),
     ]
 
     rects = []
-
     for text, color, y in buttons:
         rect = pygame.Rect(0, 0, 250, 60)
-        rect.center = (width // 2, y)
+        rect.center = (WIDTH // 2, y)
 
-        pygame.draw.rect(screen, (70, 70, 70) if rect.collidepoint(mouse_pos) else (40, 40, 40), rect, border_radius=10)
+        fill_color = (70, 70, 70) if rect.collidepoint(mouse_pos) else (40, 40, 40)
+        pygame.draw.rect(screen, fill_color, rect, border_radius=10)
 
         label = font.render(text, True, color)
         screen.blit(label, label.get_rect(center=rect.center))
@@ -84,66 +83,95 @@ def draw_menu():
 
 
 # -------- DRAW BOARD --------
-def draw_board():
-    for r in range(rows):
-        for c in range(cols):
-            color = white if (r + c) % 2 == 0 else brown
-            pygame.draw.rect(screen, color, (c * square_size, r * square_size, square_size, square_size))
+def draw_board(board_obj):
+    for r in range(ROWS):
+        for c in range(COLS):
+            color = WHITE_SQUARE if (r + c) % 2 == 0 else GREEN_SQUARE
+            pygame.draw.rect(
+                screen,
+                color,
+                (c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE),
+            )
 
             piece = board_obj.board[r][c]
             if piece:
-                screen.blit(images[piece], (c * square_size, r * square_size))
+                image = images.get(piece)
+                if image is not None:
+                    screen.blit(image, (c * SQUARE_SIZE, r * SQUARE_SIZE))
 
 
 # -------- HIGHLIGHTS --------
 def highlight_moves(moves):
     for r, c in moves:
-        pygame.draw.circle(screen, (0, 255, 0),
-                           (c * square_size + square_size // 2,
-                            r * square_size + square_size // 2), 10)
+        pygame.draw.circle(
+            screen,
+            MOVE_HINT_COLOR,
+            (c * SQUARE_SIZE + SQUARE_SIZE // 2, r * SQUARE_SIZE + SQUARE_SIZE // 2),
+            10,
+        )
 
 
-def highlight_check():
+def highlight_check(board_obj, current_turn):
     if is_in_check(board_obj, current_turn):
         for r in range(8):
             for c in range(8):
                 if board_obj.board[r][c] == current_turn + "k":
-                    pygame.draw.rect(screen, (255, 0, 0),
-                                     (c * square_size, r * square_size, square_size, square_size), 4)
+                    pygame.draw.rect(
+                        screen,
+                        CHECK_COLOR,
+                        (c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE),
+                        4,
+                    )
 
 
 def highlight_hover():
     x, y = pygame.mouse.get_pos()
-    if x < board_width:
-        r = y // square_size
-        c = x // square_size
-        pygame.draw.rect(screen, (255, 255, 0),
-                         (c * square_size, r * square_size, square_size, square_size), 2)
+    if 0 <= x < BOARD_WIDTH and 0 <= y < HEIGHT:
+        r = y // SQUARE_SIZE
+        c = x // SQUARE_SIZE
+        pygame.draw.rect(
+            screen,
+            HOVER_COLOR,
+            (c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE),
+            2,
+        )
 
 
-def highlight_last_move():
+def highlight_last_move(board_obj):
     if board_obj.move_log:
         move = board_obj.move_log[-1][0]
-        r, c = move.end
-        pygame.draw.rect(screen, (255, 255, 0),
-                         (c * square_size, r * square_size, square_size, square_size), 4)
+
+        for r, c in (move.start, move.end):
+            pygame.draw.rect(
+                screen,
+                HOVER_COLOR,
+                (c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE),
+                4,
+            )
 
 
 # -------- TIME --------
-def format_time(sec):
-    return f"{int(sec)//60:02}:{int(sec)%60:02}"
+def format_time(seconds):
+    clamped = max(0, int(seconds))
+    return f"{clamped // 60:02}:{clamped % 60:02}"
 
 
 # -------- SIDE PANEL --------
-def draw_side_panel():
-    pygame.draw.rect(screen, (30, 30, 30), (800, 0, 200, 800))
+def draw_side_panel(difficulty, white_time, black_time):
+    pygame.draw.rect(screen, SIDE_PANEL_COLOR, (800, 0, 200, 800))
 
     font = pygame.font.SysFont(None, 32)
 
     mode = difficulty.upper() if difficulty else "SELECT"
     screen.blit(font.render(f"Mode: {mode}", True, (255, 255, 255)), (820, 50))
-    screen.blit(font.render(f"White: {format_time(white_time)}", True, (200, 200, 200)), (820, 150))
-    screen.blit(font.render(f"Black: {format_time(black_time)}", True, (200, 200, 200)), (820, 200))
+    screen.blit(
+        font.render(f"White: {format_time(white_time)}", True, (200, 200, 200)),
+        (820, 150),
+    )
+    screen.blit(
+        font.render(f"Black: {format_time(black_time)}", True, (200, 200, 200)),
+        (820, 200),
+    )
 
 
 # -------- TEXT --------
@@ -154,24 +182,50 @@ def draw_text(text):
     bg.set_alpha(200)
     bg.fill((0, 0, 0))
 
-    rect = bg.get_rect(center=(400, height // 2))
+    rect = bg.get_rect(center=(BOARD_WIDTH // 2, HEIGHT // 2))
     screen.blit(bg, rect)
 
-    render = font.render(text, True, (255, 0, 0))
-    screen.blit(render, render.get_rect(center=(400, height // 2)))
+    render = font.render(text, True, CHECK_COLOR)
+    screen.blit(render, render.get_rect(center=(BOARD_WIDTH // 2, HEIGHT // 2)))
 
 
 def get_mouse_pos():
     x, y = pygame.mouse.get_pos()
-    return y // square_size, x // square_size
+    return y // SQUARE_SIZE, x // SQUARE_SIZE
+
+
+def get_ai_settings(difficulty):
+    if difficulty == "easy":
+        return heuristics_1, 0.2
+    if difficulty == "medium":
+        return heuristics_2, 0.5
+    return heuristics_3, 1.0
+
+
+def is_terminal_state(board_obj):
+    return (
+        is_checkmate(board_obj, "w")
+        or is_checkmate(board_obj, "b")
+        or is_stalemate(board_obj, "w")
+        or is_stalemate(board_obj, "b")
+    )
+
+
+def update_game_over_status(board_obj, current_turn):
+    if is_checkmate(board_obj, current_turn):
+        if current_turn == "w":
+            return True, "BLACK WINS (CHECKMATE)"
+        return True, "WHITE WINS (CHECKMATE)"
+
+    if is_stalemate(board_obj, current_turn):
+        return True, "DRAW (STALEMATE)"
+
+    return False, ""
 
 
 # -------- MAIN --------
 def main():
-    global current_turn, game_over, winner_text
-    global valid_moves, selected_square
-    global difficulty, game_started
-    global white_time, black_time, last_time
+    global state
 
     run = True
 
@@ -179,118 +233,137 @@ def main():
         clock.tick(60)
 
         # -------- MENU --------
-        if not game_started:
+        if not state["game_started"]:
             rects = draw_menu()
-            pygame.display.update()
+            pygame.display.flip()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     for rect, level in rects:
-                        if rect.collidepoint(pygame.mouse.get_pos()):
-                            difficulty = level
-                            game_started = True
+                        if rect.collidepoint(event.pos):
+                            state = create_game_state()
+                            state["difficulty"] = level
+                            state["game_started"] = True
+                            state["last_time"] = pygame.time.get_ticks()
+                            break
 
             continue
 
         # -------- TIMER --------
         now = pygame.time.get_ticks()
-        delta = (now - last_time) / 1000
-        last_time = now
+        delta = (now - state["last_time"]) / 1000.0
+        state["last_time"] = now
 
-        if not game_over:
-            if current_turn == "w":
-                white_time -= delta
+        if not state["game_over"]:
+            if state["current_turn"] == "w":
+                state["white_time"] -= delta
             else:
-                black_time -= delta
+                state["black_time"] -= delta
 
         # -------- TIME END --------
-        if white_time <= 0:
-            winner_text = "BLACK WINS (TIME)"
-            game_over = True
-        elif black_time <= 0:
-            winner_text = "WHITE WINS (TIME)"
-            game_over = True
+        if state["white_time"] <= 0:
+            state["white_time"] = 0
+            state["winner_text"] = "BLACK WINS (TIME)"
+            state["game_over"] = True
+        elif state["black_time"] <= 0:
+            state["black_time"] = 0
+            state["winner_text"] = "WHITE WINS (TIME)"
+            state["game_over"] = True
 
-        # -------- CHECK GAME END (🔥 FIXED) --------
-        if not game_over:
-            if is_checkmate(board_obj, current_turn):
-                if current_turn == "w":
-                    winner_text = "BLACK WINS (CHECKMATE)"
-                else:
-                    winner_text = "WHITE WINS (CHECKMATE)"
-
-                print(winner_text)
-                game_over = True
-
-            elif is_stalemate(board_obj, current_turn):
-                winner_text = "DRAW (STALEMATE)"
-                print(winner_text)
-                game_over = True
+        # -------- CHECK GAME END --------
+        if not state["game_over"]:
+            state["game_over"], state["winner_text"] = update_game_over_status(
+                state["board_obj"],
+                state["current_turn"],
+            )
 
         # -------- DRAW --------
-        draw_board()
-        highlight_moves(valid_moves)
-        highlight_last_move()
+        draw_board(state["board_obj"])
+        highlight_moves(state["valid_moves"])
+        highlight_last_move(state["board_obj"])
         highlight_hover()
-        highlight_check()
-        draw_side_panel()
+        highlight_check(state["board_obj"], state["current_turn"])
+        draw_side_panel(
+            state["difficulty"],
+            state["white_time"],
+            state["black_time"],
+        )
 
-        if game_over:
-            draw_text(winner_text)
+        if state["game_over"]:
+            draw_text(state["winner_text"])
 
-        pygame.display.update()
+        pygame.display.flip()
 
         # -------- EVENTS --------
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
-                if current_turn == "w":
-
+            elif event.type == pygame.MOUSEBUTTONDOWN and not state["game_over"]:
+                if state["current_turn"] == "w":
                     r, c = get_mouse_pos()
-                    old_board = [row[:] for row in board_obj.board]
+                    old_board = [row[:] for row in state["board_obj"].board]
 
-                    selected_square = handle_mouse_click(
-                        board_obj, selected_square, r, c, current_turn
+                    state["selected_square"] = handle_mouse_click(
+                        state["board_obj"],
+                        state["selected_square"],
+                        r,
+                        c,
+                        state["current_turn"],
                     )
 
-                    if selected_square:
-                        sr, sc = selected_square
-                        legal_moves = get_legal_moves(board_obj, current_turn)
-                        valid_moves = [m.end for m in legal_moves if m.start == (sr, sc)]
+                    if state["selected_square"]:
+                        sr, sc = state["selected_square"]
+                        legal_moves = get_legal_moves(state["board_obj"], state["current_turn"])
+                        state["valid_moves"] = [
+                            move.end for move in legal_moves if move.start == (sr, sc)
+                        ]
                     else:
-                        valid_moves = []
+                        state["valid_moves"] = []
 
-                    if old_board != board_obj.board:
-                        current_turn = "b"
-                        selected_square = None
-                        valid_moves = []
+                    if old_board != state["board_obj"].board:
+                        state["current_turn"] = "b"
+                        state["selected_square"] = None
+                        state["valid_moves"] = []
+
+                        state["game_over"], state["winner_text"] = update_game_over_status(
+                            state["board_obj"],
+                            state["current_turn"],
+                        )
 
         # -------- AI --------
-        if current_turn == "b" and not game_over:
-
-            eval_func = heuristics_1 if difficulty == "easy" else heuristics_2 if difficulty == "medium" else heuristics_3
-            max_time = 0.2 if difficulty == "easy" else 0.5 if difficulty == "medium" else 1.0
+        if state["current_turn"] == "b" and not state["game_over"]:
+            eval_func, max_time = get_ai_settings(state["difficulty"])
 
             move = get_ai_move(
-                board_obj,
+                state["board_obj"],
                 get_legal_moves,
                 eval_func,
-                lambda b: is_checkmate(b, "w") or is_checkmate(b, "b"),
-                max_time
+                is_terminal_state,
+                max_time,
             )
 
-            if move:
-                board_obj.make_move(move)
+            if move is not None:
+                state["board_obj"].make_move(move)
 
-            current_turn = "w"
-            valid_moves = []
+            state["current_turn"] = "w"
+            state["selected_square"] = None
+            state["valid_moves"] = []
+
+            state["game_over"], state["winner_text"] = update_game_over_status(
+                state["board_obj"],
+                state["current_turn"],
+            )
+
+        if state["game_over"]:
+            state["valid_moves"] = []
+            state["selected_square"] = None
 
     pygame.quit()
 
 
-main()
+if __name__ == "__main__":
+    main()
