@@ -1,184 +1,338 @@
-import math  # بنستورد math عشان inf
-import time  # بنستورد time عشان الوقت
+import math
+import time
 
-from game.rules import is_checkmate, is_stalemate  # بنستورد فحص المات والستالمت
+from game.rules import is_checkmate, is_stalemate
 
-MATE_SCORE = 100000  # قيمة كبيرة جدًا للمات
-
-
-# ============================================ 
-# Terminal evaluation  # تقييم الحالات النهائية
-# ============================================ 
-def get_terminal_score(board, depth, evaluate):  # دالة تقييم حالة نهاية اللعبة
-    # White checkmated -> Black wins -> very good for AI (Black)  # لو الأبيض مات يبقى ده ممتاز للأسود
-    if is_checkmate(board, "w"):  # لو الأبيض متشيكمات
-        return -MATE_SCORE + depth  # ندي سكور كبير سالب لأن الأسود أحسن
-
-    # Black checkmated -> White wins -> very bad for AI (Black)  # لو الأسود مات يبقى ده وحش للأسود
-    if is_checkmate(board, "b"):  # لو الأسود متشيكمات
-        return MATE_SCORE - depth  # ندي سكور كبير موجب لأن الأبيض كسب
-
-    # Draw  # لو تعادل
-    if is_stalemate(board, "w") or is_stalemate(board, "b"):  # لو فيه ستالمت لأي طرف
-        return 0  # السكور صفر
-
-    return evaluate(board)  # غير كده نستخدم دالة التقييم العادية
+MATE_SCORE = 100000
 
 
-# ============================================  
-# Minimax + Alpha-Beta  # مينيماكس مع تقليم ألفا بيتا
-# ============================================  
-def minimax_alpha_beta(  # دالة البحث الأساسية
-    board,  # البورد الحالية
-    depth,  # العمق
-    alpha,  # ألفا
-    beta,  # بيتا
-    is_ai_turn,  # هل ده دور الـ AI
-    get_legal_moves,  # دالة الحركات القانونية
-    evaluate,  # دالة التقييم
-    is_game_over,  # دالة فحص نهاية اللعبة
-    start_time,  # وقت بداية البحث
-    time_limit,  # أقصى وقت للبحث
-):  # نهاية التعريف
-    if time.time() - start_time > time_limit:  # لو الوقت خلص
-        return evaluate(board), None, True  # نرجع تقييم سريع ونقول إن فيه timeout
+# ==========================================================
+# Helper Part: Terminal Evaluation
+# ==========================================================
+# الجزء ده مساعد للخوارزمية كلها
+# بيحدد تقييم الوضع لو اللعبة انتهت:
+# checkmate / stalemate / normal evaluation
+# ==========================================================
 
-    if depth == 0 or is_game_over(board):  # لو وصلنا لآخر عمق أو اللعبة انتهت
-        return get_terminal_score(board, depth, evaluate), None, False  # نرجع تقييم النهاية
+def get_terminal_score(board, depth, evaluate):
+    # لو الأبيض اتعمله checkmate
+    # يبقى الأسود كسب
+    if is_checkmate(board, "w"):
+        return -MATE_SCORE + depth
 
-    current_color = "b" if is_ai_turn else "w"  # بنحدد لون اللاعب الحالي
-    moves = get_legal_moves(board, current_color)  # بنجيب كل الحركات القانونية
+    # لو الأسود اتعمله checkmate
+    # يبقى الأبيض كسب
+    if is_checkmate(board, "b"):
+        return MATE_SCORE - depth
 
-    if not moves:  # لو مفيش حركات
-        return get_terminal_score(board, depth, evaluate), None, False  # نرجع تقييم نهائي
+    # لو حصل تعادل
+    if is_stalemate(board, "w") or is_stalemate(board, "b"):
+        return 0
 
-    def score_move(move):  # دالة لترتيب الحركات
-        score = 0  # بنبدأ من صفر
-
-        if getattr(move, "promotion", False):  # لو فيها ترقية
-            score += 200  # نديها أولوية أعلى
-
-        if getattr(move, "is_capture", False):  # لو فيها أكل
-            score += 100  # نديها أولوية
-
-        if getattr(move, "is_castling", False):  # لو فيها كاستلينج
-            score += 50  # نديها شوية أولوية
-
-        return score  # نرجع سكور الحركة
-
-    moves = sorted(moves, key=score_move, reverse=True)  # بنرتب الحركات من الأفضل للأسوأ
-    best_move = None  # أحسن حركة لسه غير معروفة
-
-    # AI is Black, and evaluation is White-positive / Black-negative  # الـ AI بيلعب أسود والتقييم موجب للأبيض
-    # so Black should minimize the score.  # فبالتالي الأسود لازم يقلل السكور
-    if is_ai_turn:  # لو ده دور الـ AI
-        best_eval = math.inf  # نبدأ بأكبر قيمة ممكنة
-
-        for move in moves:  # بنلف على كل حركة
-            board.make_move(move)  # بننفذ الحركة
-            try:  # بنبدأ try
-                eval_score, _, timed_out = minimax_alpha_beta(  # بنعمل نداء recursive
-                    board,  # نفس البورد بعد الحركة
-                    depth - 1,  # عمق أقل
-                    alpha,  # ألفا الحالية
-                    beta,  # بيتا الحالية
-                    False,  # الدور الجاي للمنافس
-                    get_legal_moves,  # دالة الحركات
-                    evaluate,  # دالة التقييم
-                    is_game_over,  # دالة فحص النهاية
-                    start_time,  # وقت البداية
-                    time_limit,  # الوقت المسموح
-                )  # نهاية النداء
-            finally:  # مهما حصل
-                board.undo_move()  # بنرجع الحركة
-
-            if timed_out:  # لو حصل timeout
-                return best_eval, best_move, True  # نرجع أفضل نتيجة وصلنالها
-
-            if getattr(move, "is_capture", False):  # لو الحركة كانت أكلة
-                eval_score -= 30  # ندي بونس بسيط للأسود لأنه بيقلل السكور
-
-            if eval_score < best_eval:  # لو النتيجة دي أحسن للأسود
-                best_eval = eval_score  # نحدّث أفضل تقييم
-                best_move = move  # ونحفظ الحركة
-
-            beta = min(beta, best_eval)  # نحدّث بيتا
-
-            if beta <= alpha:  # لو حصل cut-off
-                break  # نوقف بقية الحركات
-
-        return best_eval, best_move, False  # نرجع أفضل نتيجة للأسود
-
-    # White should maximize the score.  # الأبيض لازم يكبر السكور
-    best_eval = -math.inf  # نبدأ بأقل قيمة ممكنة
-
-    for move in moves:  # بنلف على كل حركة
-        board.make_move(move)  # بننفذ الحركة
-        try:  # بنبدأ try
-            eval_score, _, timed_out = minimax_alpha_beta(  # نداء recursive
-                board,  # نفس البورد
-                depth - 1,  # عمق أقل
-                alpha,  # ألفا
-                beta,  # بيتا
-                True,  # الدور الجاي للـ AI
-                get_legal_moves,  # دالة الحركات
-                evaluate,  # دالة التقييم
-                is_game_over,  # دالة فحص النهاية
-                start_time,  # وقت البداية
-                time_limit,  # الوقت المتاح
-            )  # نهاية النداء
-        finally:  # مهما حصل
-            board.undo_move()  # بنرجع الحركة
-
-        if timed_out:  # لو الوقت خلص
-            return best_eval, best_move, True  # نرجع أفضل حاجة لحد هنا
-
-        if getattr(move, "is_capture", False):  # لو الحركة أكلة
-            eval_score += 30  # ندي بونس بسيط للأبيض
-
-        if eval_score > best_eval:  # لو النتيجة دي أحسن للأبيض
-            best_eval = eval_score  # نحدّث أفضل تقييم
-            best_move = move  # نحفظ أحسن حركة
-
-        alpha = max(alpha, best_eval)  # نحدّث ألفا
-
-        if beta <= alpha:  # لو حصل cut-off
-            break  # نوقف بقية الحركات
-
-    return best_eval, best_move, False  # نرجع أفضل نتيجة للأبيض
+    # لو اللعبة لسه مستمرة
+    return evaluate(board)
 
 
-# ============================================ 
-# Iterative deepening  # البحث التدريجي بالعمق
-# ============================================  
-def get_ai_move(board, get_legal_moves, evaluate, is_game_over, max_time=1.0):  # دالة ترجع أحسن حركة للـ AI
-    start_time = time.time()  # بنسجل بداية الوقت
-    best_move = None  # أحسن حركة لسه غير معروفة
-    depth = 1  # بنبدأ من عمق 1
+# ==========================================================
+# =================== GAME TREE PART =======================
+# ==========================================================
+# مسؤول عن:
+# 1. تحديد اللاعب الحالي
+# 2. جلب الحركات القانونية
+# 3. ترتيب الحركات
+# 4. تجربة الحركة على البورد
+# 5. الرجوع خطوة للخلف undo_move
+# ==========================================================
 
-    while True:  # لوب لزيادة العمق تدريجيًا
-        if time.time() - start_time > max_time:  # لو الوقت خلص
-            break  # نوقف البحث
+def get_current_color(is_ai_turn):
+    # AI هو الأسود
+    # اللاعب الآخر هو الأبيض
+    return "b" if is_ai_turn else "w"
 
-        _, move, timed_out = minimax_alpha_beta(  # بنشغل المينيماكس
-            board,  # البورد الحالية
-            depth,  # العمق الحالي
-            -math.inf,  # ألفا الابتدائية
-            math.inf,  # بيتا الابتدائية
-            True,  # دور الـ AI
-            get_legal_moves,  # دالة الحركات
-            evaluate,  # دالة التقييم
-            is_game_over,  # دالة فحص النهاية
-            start_time,  # وقت البداية
-            max_time,  # الوقت الأقصى
-        )  # نهاية الاستدعاء
 
-        if timed_out:  # لو البحث الأخير وقف بسبب الوقت
-            break  # نكتفي بآخر نتيجة سليمة
+def score_move(move):
+    # بنستخدم الدالة دي لترتيب الحركات
+    # عشان نجرب الحركات المهمة الأول
+    score = 0
 
-        if move is not None:  # لو لقينا حركة صالحة
-            best_move = move  # نخزنها كأفضل حركة
+    if getattr(move, "promotion", False):
+        score += 200
 
-        depth += 1  # نزود العمق واحدة
+    if getattr(move, "is_capture", False):
+        score += 100
 
-    return best_move  # نرجع أفضل حركة وصلنالها
+    if getattr(move, "is_castling", False):
+        score += 50
+
+    return score
+
+
+def get_ordered_moves(board, is_ai_turn, get_legal_moves):
+    current_color = get_current_color(is_ai_turn)
+
+    # كل حركة هنا تعتبر فرع في Game Tree
+    moves = get_legal_moves(board, current_color)
+
+    # ترتيب الحركات عشان البحث يكون أسرع
+    moves = sorted(moves, key=score_move, reverse=True)
+
+    return moves
+
+
+# ==========================================================
+# ==================== MINIMAX PART ========================
+# ==========================================================
+# مسؤول عن:
+# 1. معرفة هل الدور Min ولا Max
+# 2. اختيار أفضل evaluation
+# 3. اختيار أفضل move
+#
+# في المشروع:
+# Positive score = كويس للأبيض
+# Negative score = كويس للأسود
+#
+# إذن:
+# Black AI = Min Player
+# White = Max Player
+# ==========================================================
+
+def minimax_alpha_beta(
+    board,
+    depth,
+    alpha,
+    beta,
+    is_ai_turn,
+    get_legal_moves,
+    evaluate,
+    is_game_over,
+    start_time,
+    time_limit,
+):
+    # ======================================================
+    # Helper Part: Time Limit
+    # ======================================================
+
+    if time.time() - start_time > time_limit:
+        return evaluate(board), None, True
+
+    # ======================================================
+    # Helper Part: Stop Condition
+    # ======================================================
+
+    if depth == 0 or is_game_over(board):
+        return get_terminal_score(board, depth, evaluate), None, False
+
+    # ======================================================
+    # GAME TREE PART
+    # ======================================================
+    # هنا بنجيب كل الحركات القانونية
+    # كل move منهم يمثل فرع في شجرة الاحتمالات
+    # ======================================================
+
+    moves = get_ordered_moves(board, is_ai_turn, get_legal_moves)
+
+    if not moves:
+        return get_terminal_score(board, depth, evaluate), None, False
+
+    best_move = None
+
+    # ======================================================
+    # MINIMAX PART: MIN PLAYER
+    # ======================================================
+    # لو الدور على الأسود AI
+    # الأسود بيحاول يقلل score
+    # ======================================================
+
+    if is_ai_turn:
+        best_eval = math.inf
+
+        for move in moves:
+            # ==================================================
+            # GAME TREE PART
+            # ==================================================
+            # نجرب الحركة وننزل مستوى أعمق في الشجرة
+            # ==================================================
+
+            board.make_move(move)
+
+            try:
+                eval_score, _, timed_out = minimax_alpha_beta(
+                    board,
+                    depth - 1,
+                    alpha,
+                    beta,
+                    False,
+                    get_legal_moves,
+                    evaluate,
+                    is_game_over,
+                    start_time,
+                    time_limit,
+                )
+            finally:
+                # GAME TREE PART
+                # نرجع الحركة عشان نجرب فرع تاني
+                board.undo_move()
+
+            if timed_out:
+                return best_eval, best_move, True
+
+            # Bonus بسيط للحركات اللي فيها capture
+            # لأن الأسود Min، بنقلل التقييم
+            if getattr(move, "is_capture", False):
+                eval_score -= 30
+
+            # ==================================================
+            # MINIMAX PART
+            # ==================================================
+            # الأسود يختار أقل evaluation
+            # ==================================================
+
+            if eval_score < best_eval:
+                best_eval = eval_score
+                best_move = move
+
+            # ==================================================
+            # ALPHA-BETA PART
+            # ==================================================
+            # في دور Min بنحدث beta
+            # beta = أفضل أقل قيمة وصل لها Min
+            # ==================================================
+
+            beta = min(beta, best_eval)
+
+            # ==================================================
+            # ALPHA-BETA PRUNING
+            # ==================================================
+            # لو beta <= alpha
+            # يبقى باقي الفروع مش هتغير القرار
+            # ==================================================
+
+            if beta <= alpha:
+                break
+
+        return best_eval, best_move, False
+
+    # ======================================================
+    # MINIMAX PART: MAX PLAYER
+    # ======================================================
+    # لو الدور على الأبيض
+    # الأبيض بيحاول يكبر score
+    # ======================================================
+
+    best_eval = -math.inf
+
+    for move in moves:
+        # ======================================================
+        # GAME TREE PART
+        # ======================================================
+        # نجرب حركة الأبيض وننزل مستوى أعمق
+        # ======================================================
+
+        board.make_move(move)
+
+        try:
+            eval_score, _, timed_out = minimax_alpha_beta(
+                board,
+                depth - 1,
+                alpha,
+                beta,
+                True,
+                get_legal_moves,
+                evaluate,
+                is_game_over,
+                start_time,
+                time_limit,
+            )
+        finally:
+            # GAME TREE PART
+            # نرجع الحركة عشان نجرب حركة تانية
+            board.undo_move()
+
+        if timed_out:
+            return best_eval, best_move, True
+
+        # Bonus بسيط للحركات اللي فيها capture
+        # لأن الأبيض Max، بنزود التقييم
+        if getattr(move, "is_capture", False):
+            eval_score += 30
+
+        # ======================================================
+        # MINIMAX PART
+        # ======================================================
+        # الأبيض يختار أكبر evaluation
+        # ======================================================
+
+        if eval_score > best_eval:
+            best_eval = eval_score
+            best_move = move
+
+        # ======================================================
+        # ALPHA-BETA PART
+        # ======================================================
+        # في دور Max بنحدث alpha
+        # alpha = أفضل أعلى قيمة وصل لها Max
+        # ======================================================
+
+        alpha = max(alpha, best_eval)
+
+        # ======================================================
+        # ALPHA-BETA PRUNING
+        # ======================================================
+        # لو beta <= alpha
+        # يبقى مفيش داعي نكمل باقي الفروع
+        # ======================================================
+
+        if beta <= alpha:
+            break
+
+    return best_eval, best_move, False
+
+
+# ==========================================================
+# Helper Part: Iterative Deepening
+# ==========================================================
+# ده جزء مساعد مش من التقسيمة الأساسية
+# بيشغل البحث بعمق 1 ثم 2 ثم 3...
+# لحد ما الوقت يخلص
+# ==========================================================
+
+def get_ai_move(board, get_legal_moves, evaluate, is_game_over, max_time=1.0):
+    start_time = time.time()
+
+    best_move = None
+    depth = 1
+
+    while True:
+        if time.time() - start_time > max_time:
+            break
+
+        # ======================================================
+        # ALPHA-BETA START VALUES
+        # ======================================================
+        # alpha = -infinity
+        # beta = +infinity
+        # البداية من دور الأسود AI
+        # ======================================================
+
+        _, move, timed_out = minimax_alpha_beta(
+            board,
+            depth,
+            -math.inf,
+            math.inf,
+            True,
+            get_legal_moves,
+            evaluate,
+            is_game_over,
+            start_time,
+            max_time,
+        )
+
+        if timed_out:
+            break
+
+        if move is not None:
+            best_move = move
+
+        depth += 1
+
+    return best_move
